@@ -3,6 +3,7 @@ package com.example.guessthephrase
 import android.content.DialogInterface
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -15,19 +16,17 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var myRV: RecyclerView
     private lateinit var guessButton: Button
-    private lateinit var messageText: TextView
-    private lateinit var textGuess: TextView
-    private lateinit var textLetters: TextView
+    private lateinit var textFieldMessage: TextView
+    private lateinit var textViewGuess: TextView
+    private lateinit var textViewLetters: TextView
     private lateinit var clMain: ConstraintLayout
 
-    private val messages = ArrayList<String>()
+    private val answers = ArrayList<String>()
     private val answer = "i am a trainee at saudi digital academy"
-    private val myAnswerDictionary = mutableMapOf<Int, Char>()
-    private var myAnswer = ""
-    private var guessedLetters = ""
-    private var count = 0
-    private var guessPhrase = true
-
+    private var hidTexe = ""
+    private var count = 10
+    private var guessedLetters = ArrayList<Char>()
+    private var SwitchGuess = true
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,118 +35,127 @@ class MainActivity : AppCompatActivity() {
 
         myRV = findViewById(R.id.rvMain)
         guessButton = findViewById(R.id.submitButton)
-        messageText = findViewById(R.id.messageText)
-        textGuess = findViewById(R.id.textGuess)
-        textLetters = findViewById(R.id.guessedLetters)
+        textFieldMessage = findViewById(R.id.messageText)
+        textViewGuess = findViewById(R.id.textGuess)
+        textViewLetters = findViewById(R.id.guessedLetters)
 
         clMain = findViewById(R.id.clMain)
-        myRV.adapter = RecyclerViewAdapter(messages)
+        myRV.adapter = RecyclerViewAdapter(answers)
         myRV.layoutManager = LinearLayoutManager(this)
 
         for (i in answer.indices) {
             if (answer[i] == ' ') {
-                myAnswer += ' '
-                myAnswerDictionary[i] = ' '
+                hidTexe += ' '
             } else {
-                myAnswer += '*'
-                myAnswerDictionary[i] = '*'
+                hidTexe += '*'
             }
         }
-        updateTextField()
+        updateText()
         guessButton.setOnClickListener { addGuess() }
     }
 
     private fun addGuess() {
-        var userGuess = messageText.text.toString()
-
-        if (guessPhrase) {
-            if (userGuess == answer) {
-                disableEntry()
-                showAlertDialog("You win!\n\nPlay again?")
+        var userGuess = textFieldMessage.text.toString()
+        userGuess = userGuess.lowercase()
+        if (count != 1 ) {
+            if (SwitchGuess) {
+                if (userGuess == answer) {
+                    disableEntry()
+                    showAlertDialog("You win!\n\nPlay again?")
+                    answers.add("-----------------------------------------")
+                    answers.add("You win!\nThe correct answer was: [ $answer ]\n\nGame Over")
+                } else {
+                    SwitchGuess = false
+                    updateText()
+                    answers.add("Wrong guess: $userGuess")
+                }
             } else {
-                updateTextField()
-                guessPhrase = false
-                messages.add("Wrong guess: $userGuess")
+                if (userGuess.isNotEmpty() && userGuess.length == 1) {
+                    SwitchGuess = true
+                    checkLetters(userGuess[0])
+                    count--
+                    answers.add("$count guesses remaining")
+                } else {
+                    Snackbar.make(clMain, "Please enter one letter only", Snackbar.LENGTH_LONG)
+                        .show()
+                }
             }
+        } else {
+            disableEntry()
+            showAlertDialog("You lose!\n\nPlay again?")
+            answers.add("-----------------------------------------")
+            answers.add("You lose\nThe correct answer was: [ $answer ] \n\nGame Over")
         }
-        else {
-            if (userGuess.isNotEmpty() && userGuess.length == 1) {
-                myAnswer = ""
-                guessPhrase = true
-                checkLetters(userGuess[0])
-            } else {
-                Snackbar.make(clMain, "Please enter one letter only", Snackbar.LENGTH_LONG).show()
-            }
-        }
-        messageText.text = ""
+        myRV.scrollToPosition(answers.size - 1)
+        textFieldMessage.text = ""
         myRV.adapter?.notifyDataSetChanged()
     }
 
-    private fun updateTextField(){
-        textGuess.text = myAnswer.toUpperCase()
-        textLetters.text = "Guessed Letters:  " + guessedLetters
-        if(guessPhrase){
-            messageText.hint = "Guess the full phrase"
+    private fun updateText(){
+        textViewGuess.text = hidTexe.toUpperCase()
+        textViewLetters.text = "Guessed Letters:  " + guessedLetters.joinToString()
+        if(SwitchGuess){
+            textFieldMessage.hint = "Guess the full phrase"
         }else{
-            messageText.hint = "Guess a letter"
+            textFieldMessage.hint = "Guess a letter"
         }
     }
 
     private fun checkLetters(guessedLetter: Char){
-        var found = 0
-        for(i in answer.indices){
-            if(answer[i] == guessedLetter){
-                myAnswerDictionary[i] = guessedLetter
-                found++
+        var allStars = hidTexe.toCharArray()
+        var listOfIndex = ArrayList<Int>()
+        var temText = ""
+        // find all index
+        for (i in answer.indices) {
+            if (answer[i] == guessedLetter) {
+                listOfIndex.add(i)
             }
         }
-        for(i in myAnswerDictionary){myAnswer += myAnswerDictionary[i.key]}
-        if(myAnswer==answer){
-            disableEntry()
-            showAlertDialog("You win!\n\nPlay again?")
+        if (listOfIndex.isNotEmpty()) {
+            for (item in listOfIndex) {
+                allStars[item]= guessedLetter
+            }
+
+            for (i in allStars) {
+                if (i == ' ') {
+                    temText += ' '
+                } else if (i == '*'){
+                    temText += '*'
+                } else {
+                    temText += i
+                }
+            }
+            hidTexe = temText
+            guessedLetters.add(guessedLetter)
+            answers.add("Found ${listOfIndex.size} ${guessedLetter.toUpperCase()}(s)")
+        } else {
+            answers.add("No ${guessedLetter.toUpperCase()}s found")
         }
-        if(guessedLetters.isEmpty()){guessedLetters+=guessedLetter}else{guessedLetters+=", "+guessedLetter}
-        if(found>0){
-            messages.add("Found $found ${guessedLetter.toUpperCase()}(s)")
-        }else{
-            messages.add("No ${guessedLetter.toUpperCase()}s found")
-        }
-        count++
-        val guessesLeft = 10 - count
-        if(count<10){messages.add("$guessesLeft guesses remaining")}
-        updateTextField()
-        myRV.scrollToPosition(messages.size - 1)
+        updateText()
+        Log.i("i", temText)
     }
 
     private fun disableEntry() {
         guessButton.isEnabled = false
         guessButton.isClickable = false
-        messageText.isEnabled = false
-        messageText.isClickable = false
+        textFieldMessage.isEnabled = false
+        textFieldMessage.isClickable = false
     }
 
     private fun showAlertDialog(title: String) {
-        // build alert dialog
         val dialogBuilder = AlertDialog.Builder(this)
 
-        // set message of alert dialog
         dialogBuilder.setMessage(title)
-            // if the dialog is cancelable
             .setCancelable(false)
-            // positive button text and action
             .setPositiveButton("Yes", DialogInterface.OnClickListener { dialog, id ->
                 this.recreate()
             })
-            // negative button text and action
             .setNegativeButton("No", DialogInterface.OnClickListener { dialog, id ->
                 dialog.cancel()
             })
 
-        // create dialog box
         val alert = dialogBuilder.create()
-        // set title for alert dialog box
         alert.setTitle("Game Over")
-        // show alert dialog
         alert.show()
     }
 }
